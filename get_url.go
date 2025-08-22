@@ -1,51 +1,43 @@
 package main
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
-func getURLsFromHTML(htmlBody, rawBaseURL string) ([]string, error) {
-	r := strings.NewReader(htmlBody)
-	doc, err := html.Parse(r)
+func getURLsFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
+	htmlReader := strings.NewReader(htmlBody)
+	doc, err := html.Parse(htmlReader)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldn't parse HTML: %v", err)
 	}
 
-	base, err := url.Parse(rawBaseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	return walk(doc, base), nil
-}
-
-func walk(n *html.Node, base *url.URL) []string {
 	var urls []string
+	var traverseNodes func(*html.Node)
+	traverseNodes = func(node *html.Node) {
+		if node.Type == html.ElementNode && node.Data == "a" {
+			for _, anchor := range node.Attr {
+				if anchor.Key == "href" {
+					href, err := url.Parse(anchor.Val)
+					if err != nil {
+						fmt.Printf("couldn't parse href '%v': %v\n", anchor.Val, err)
+						continue
+					}
 
-	if n.Type == html.ElementNode && n.Data == "a" {
-		for _, attr := range n.Attr {
-			if attr.Key == "href" {
-				val := strings.TrimSpace(attr.Val)
-				if val == "" {
-					continue
+					resolvedURL := baseURL.ResolveReference(href)
+					urls = append(urls, resolvedURL.String())
 				}
-				u, err := url.Parse(val)
-				if err != nil {
-					continue // ignorar href inválido
-				}
-				abs := base.ResolveReference(u)
-				urls = append(urls, abs.String())
 			}
 		}
-	}
 
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		childURLs := walk(c, base)
-		urls = append(urls, childURLs...)
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			traverseNodes(child)
+		}
 	}
+	traverseNodes(doc)
 
-	return urls
+	return urls, nil
 }

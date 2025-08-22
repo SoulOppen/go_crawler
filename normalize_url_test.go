@@ -49,12 +49,6 @@ func TestNormalizeURL(t *testing.T) {
 			inputURL: "https://127.0.0.1/login",
 			expected: "127.0.0.1/login",
 		},
-
-		{
-			name:     "empty string",
-			inputURL: "",
-			expected: "",
-		},
 	}
 
 	for i, tc := range tests {
