@@ -6,12 +6,15 @@ import (
 )
 
 func (cfg *config) crawlPage(rawCurrentURL string) {
+
 	cfg.concurrencyControl <- struct{}{}
 	defer func() {
 		<-cfg.concurrencyControl
 		cfg.wg.Done()
 	}()
-
+	if cfg.nPages() > cfg.maxPages {
+		return
+	}
 	currentURL, err := url.Parse(rawCurrentURL)
 	if err != nil {
 		fmt.Printf("Error - crawlPage: couldn't parse URL '%s': %v\n", rawCurrentURL, err)
